@@ -6,6 +6,7 @@
 #include <fstream>
 #include <sstream>
 #include <cstdio>
+#include "bloom_filter.h"
 
 class MemTable {
 private:
@@ -17,6 +18,7 @@ private:
     // --> NEW: Thresholds and tracking for SSTables
     size_t max_size_bytes; 
     int sstable_count;
+    std::map<std::string, BloomFilter> bloom_filters;
 
     void flush_to_sstable(); // <-- NEW: Internal helper to dump data to disk
 

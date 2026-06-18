@@ -10,3 +10,4 @@ include_directories(include)
 
 # Compile the engine and link the source files
 add_executable(lsm_test src/main.cpp src/memtable.cpp)
+add_executable(lsm_test src/main.cpp src/memtable.cpp src/bloom_filter.cpp)

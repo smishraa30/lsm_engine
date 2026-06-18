@@ -42,6 +42,20 @@ void MemTable::flush_to_sstable() {
     wal_file.open("wal.log", std::ios::trunc); // trunc wipes the file clean
     wal_file.close();
     wal_file.open("wal.log", std::ios::app);
+
+    // Inside flush_to_sstable()...
+    
+    // Create a new Bloom Filter for this specific file
+    BloomFilter filter(1000, 3);
+
+    for (const auto& [k, v] : table) {
+        ss_file << k << "," << v << "\n";
+        filter.add(k); // <-- NEW: Add the key to the Bloom Filter!
+    }
+    ss_file.close();
+
+    // Save the filter in RAM so we can use it later
+    bloom_filters[filename] = filter;
 }
 
 // 2. The Recovery Routine (NEW)
@@ -125,6 +139,17 @@ std::optional<std::string> MemTable::get(const std::string& key) const {
     // We search backwards (from sstable_count down to 1) to get the newest data first.
     for (int i = sstable_count; i >= 1; i--) {
         std::string filename = "sstable_" + std::to_string(i) + ".db";
+        // --> NEW: Ask the Bloom Filter FIRST!
+// --> NEW: Ask the Bloom Filter FIRST! (Const-Safe Version)
+        auto filter_it = bloom_filters.find(filename);
+        if (filter_it != bloom_filters.end()) {
+            // Use filter_it->second instead of bloom_filters[filename]
+            if (!filter_it->second.possibly_contains(key)) {
+                // The filter says it's definitely not here. Skip the slow disk read!
+                std::cout << "[Bloom Filter] Skipped reading " << filename << " for key: " << key << std::endl;
+                continue; 
+            }
+        }
         std::ifstream ss_file(filename);
         
         if (!ss_file.is_open()) continue;
